@@ -103,7 +103,7 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:visibility="invisible">
-                <ImageButton android:id="@+id/btnMute" android:src="@drawable/ic_volume_on" android:contentDescription="Car sound on or off" style="@style/Pad"/>
+                <ImageButton android:id="@+id/btnMute" android:src="@drawable/ic_volume_off" android:contentDescription="Car sound on or off" style="@style/Pad"/>
                 <Button
                     android:id="@+id/btnTalk"
                     android:layout_width="240dp"

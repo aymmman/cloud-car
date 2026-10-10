@@ -47,7 +47,7 @@ class MainActivity : AppCompatActivity() {
     @Volatile private var cam   = 0
     @Volatile private var carIp: String? = null
     @Volatile private var talking = false
-    private var muted = false
+    private var muted = true      // car sound off by default: lowest video delay
     private val AUTH = "YWRtaW46YWRtaW4="   // base64 of admin:admin
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -220,12 +220,16 @@ class MainActivity : AppCompatActivity() {
         player.stop()
         val media = Media(libVlc, Uri.parse(url))
         media.setHWDecoderEnabled(true, false)
-        media.addOption(":network-caching=150")
+        media.addOption(":network-caching=100")
+        media.addOption(":live-caching=100")
+        media.addOption(":clock-jitter=0")
+        media.addOption(":clock-synchro=0")
         media.addOption(":rtsp-tcp")
+        // Without audio, VLC shows each frame immediately instead of syncing it to the sound
+        if (muted) media.addOption(":no-audio")
         player.setMedia(media)
         media.release()
         player.play()
-        player.setVolume(if (muted) 0 else 100)
     }
 
     // ── Control loop ───────────────────────────────────────────
@@ -320,7 +324,7 @@ class MainActivity : AppCompatActivity() {
         val btnMute = findViewById<ImageButton>(R.id.btnMute)
         btnMute.setOnClickListener {
             muted = !muted
-            player.setVolume(if (muted) 0 else 100)
+            startVideo()   // reconnect with or without the car sound
             btnMute.setImageResource(if (muted) R.drawable.ic_volume_off else R.drawable.ic_volume_on)
         }
 
