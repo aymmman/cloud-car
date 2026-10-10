@@ -17,6 +17,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.rtsp.RtspMediaSource
 import androidx.media3.ui.PlayerView
@@ -72,7 +73,13 @@ class MainActivity : AppCompatActivity() {
         tvBattery       = findViewById(R.id.tvBattery)
 
         // Prepare player (not started until car is found)
-        player = ExoPlayer.Builder(this).build()
+        // Low-latency buffering: start after 0.25 s of video and never hold more than 1 s,
+        // instead of ExoPlayer's default multi-second buffer meant for films
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(500, 1000, 250, 250)
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
+        player = ExoPlayer.Builder(this).setLoadControl(loadControl).build()
         findViewById<PlayerView>(R.id.video).apply {
             player = this@MainActivity.player
             useController = false
