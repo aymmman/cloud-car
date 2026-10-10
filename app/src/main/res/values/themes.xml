@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">#000000</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowKeepScreenOn">true</item>
+    </style>
+    <style name="Pad">
+        <item name="android:layout_width">80dp</item>
+        <item name="android:layout_height">80dp</item>
+        <item name="android:layout_margin">4dp</item>
+        <item name="android:padding">18dp</item>
+        <item name="android:scaleType">fitCenter</item>
+        <item name="android:background">@drawable/btn_bg</item>
+        <item name="android:tint">#FFFFFF</item>
+    </style>
+</resources>
