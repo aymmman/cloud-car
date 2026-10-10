@@ -186,24 +186,22 @@ class MainActivity : AppCompatActivity() {
             listOf(R.id.video, R.id.hud, R.id.dpad, R.id.sideControls, R.id.audioRow)
                 .forEach { findViewById<View>(it).visibility = View.VISIBLE }
 
-            // Start 
-            val rtspFactory = RtspMediaSource.Factory()
-            val rtspFactory = RtspMediaSource.Factory()
-            .setForceUseRtpTcp(true)
-            .setForceUseRtpTcp(true)
-        player.setMediaSource(rtspFactory.createMediaSource(
-            MediaItem.fromUri("rtsp://admin:admin@$ip:554/cam1/h264")))
-        player.repeatMode = Player.REPEAT_MODE_ONE
-        player.playWhenReady = true
-        player.addListener(object : Player.Listener {
-            override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_IDLE || state == Player.STATE_ENDED) {
-                    player.prepare()
+            // Start video
+            // RTP over TCP: no lost packets on Wi-Fi, so the picture does not freeze
+            val rtspFactory = RtspMediaSource.Factory().setForceUseRtpTcp(true)
+            player.setMediaSource(rtspFactory.createMediaSource(
+                MediaItem.fromUri("rtsp://admin:admin@$ip:554/cam1/h264")))
+            player.repeatMode = Player.REPEAT_MODE_ONE
+            player.playWhenReady = true
+            player.addListener(object : Player.Listener {
+                override fun onPlaybackStateChanged(state: Int) {
+                    if (state == Player.STATE_IDLE || state == Player.STATE_ENDED) {
+                        layoutDiscovery.postDelayed({ player.prepare() }, 1000)
+                    }
                 }
-            }
-        })
-        player.prepare()
-        player.play()
+            })
+            player.prepare()
+            player.play()
         }
         controlLoop(ip)
     }
@@ -223,21 +221,42 @@ class MainActivity : AppCompatActivity() {
                         withContext(Dispatchers.Main) {
                             tvStatus.text = "● Connected  $ip"
                         }
+                        val rx = ByteArray(64)
+                        var acc = ByteArray(0)
+                        var lastReply = System.currentTimeMillis()
+                        var boardOk: Boolean? = null
                         while (isActive) {
                             os.write(pkt(dir, light, cam, step))
                             if (dir in diag) step++ else step = 0
                             try {
-                                val buf = ByteArray(9)
-                                if (inp.read(buf) == 9 &&
-                                    buf[0] == 1.toByte() && buf[4] == 1.toByte()) {
-                                    val bat      = buf[5].toInt() and 0xFF
-                                    val charging = buf[6] == 1.toByte()
-                                    withContext(Dispatchers.Main) {
-                                        tvBattery.text =
-                                            "Battery $bat%${if (charging) " ⚡" else ""}"
-                                    }
-                                }
+                                val n = inp.read(rx)
+                                if (n > 0) acc += rx.copyOf(n)
                             } catch (_: IOException) {}
+                            // The car answers with 01 55 92 07 01 <battery %> .. .. <checksum>
+                            var i = 0
+                            var bat = -1
+                            while (i + 8 < acc.size) {
+                                if (acc[i] == 1.toByte() && acc[i + 1] == 0x55.toByte() &&
+                                    acc[i + 2] == 0x92.toByte() && acc[i + 3] == 7.toByte() &&
+                                    acc[i + 4] == 1.toByte()) {
+                                    bat = acc[i + 5].toInt() and 0xFF
+                                    i += 9
+                                } else i++
+                            }
+                            if (acc.size > 8) acc = acc.copyOfRange(acc.size - 8, acc.size)
+                            val now = System.currentTimeMillis()
+                            if (bat >= 0) {
+                                lastReply = now
+                                withContext(Dispatchers.Main) { tvBattery.text = "Battery $bat%" }
+                            }
+                            val ok = now - lastReply < 3000
+                            if (ok != boardOk) {
+                                boardOk = ok
+                                withContext(Dispatchers.Main) {
+                                    tvStatus.text = if (ok) "● Connected  $ip"
+                                                    else "● Car not answering (charging?)"
+                                }
+                            }
                             delay(150)
                         }
                     }
