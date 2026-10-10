@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-        android:background="#0B1030"
+    android:background="#0B1030"
     android:keepScreenOn="true">
 
     <!-- Main screen: status bar, camera on top, controls underneath -->
@@ -76,7 +76,7 @@
                     <ImageButton android:id="@+id/dF"  android:src="@drawable/ic_up"         android:contentDescription="Forward"       style="@style/Pad"/>
                     <ImageButton android:id="@+id/dFR" android:src="@drawable/ic_up_right"   android:contentDescription="Forward right" style="@style/Pad"/>
                     <ImageButton android:id="@+id/dL"  android:src="@drawable/ic_left"       android:contentDescription="Turn left"     style="@style/Pad"/>
-                    <Space android:layout_width="80dp" android:layout_height="80dp" android:layout_margin="4dp"/>
+                    <Space android:layout_width="72dp" android:layout_height="72dp" android:layout_margin="4dp"/>
                     <ImageButton android:id="@+id/dR"  android:src="@drawable/ic_right"      android:contentDescription="Turn right"    style="@style/Pad"/>
                     <ImageButton android:id="@+id/dBL" android:src="@drawable/ic_down_left"  android:contentDescription="Back left"     style="@style/Pad"/>
                     <ImageButton android:id="@+id/dB"  android:src="@drawable/ic_down"       android:contentDescription="Back"          style="@style/Pad"/>
