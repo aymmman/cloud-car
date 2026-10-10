@@ -188,7 +188,8 @@ class MainActivity : AppCompatActivity() {
 
             // Start 
             val rtspFactory = RtspMediaSource.Factory()
-            .setTimeoutMs(0)
+            val rtspFactory = RtspMediaSource.Factory()
+            .setForceUseRtpTcp(true)
             .setForceUseRtpTcp(true)
         player.setMediaSource(rtspFactory.createMediaSource(
             MediaItem.fromUri("rtsp://admin:admin@$ip:554/cam1/h264")))
