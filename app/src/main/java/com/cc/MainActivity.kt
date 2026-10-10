@@ -186,13 +186,23 @@ class MainActivity : AppCompatActivity() {
             listOf(R.id.video, R.id.hud, R.id.dpad, R.id.sideControls, R.id.audioRow)
                 .forEach { findViewById<View>(it).visibility = View.VISIBLE }
 
-            // Start video
-            player.setMediaSource(
-                RtspMediaSource.Factory().createMediaSource(
-                    MediaItem.fromUri("rtsp://admin:admin@$ip:554/cam1/h264")))
-            player.repeatMode = Player.REPEAT_MODE_ONE
-            player.prepare()
-            player.play()
+            // Start 
+            val rtspFactory = RtspMediaSource.Factory()
+            .setTimeoutMs(0)
+            .setForceUseRtpTcp(true)
+        player.setMediaSource(rtspFactory.createMediaSource(
+            MediaItem.fromUri("rtsp://admin:admin@$ip:554/cam1/h264")))
+        player.repeatMode = Player.REPEAT_MODE_ONE
+        player.playWhenReady = true
+        player.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_IDLE || state == Player.STATE_ENDED) {
+                    player.prepare()
+                }
+            }
+        })
+        player.prepare()
+        player.play()
         }
         controlLoop(ip)
     }
