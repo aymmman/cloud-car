@@ -7,7 +7,10 @@ import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
@@ -15,13 +18,11 @@ import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.exoplayer.DefaultLoadControl
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.rtsp.RtspMediaSource
-import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.*
+import org.videolan.libvlc.LibVLC
+import org.videolan.libvlc.Media
+import org.videolan.libvlc.MediaPlayer
+import org.videolan.libvlc.util.VLCVideoLayout
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.InetSocketAddress
@@ -50,7 +51,12 @@ class MainActivity : AppCompatActivity() {
     private val AUTH = "YWRtaW46YWRtaW4="   // base64 of admin:admin
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private lateinit var player: ExoPlayer
+    private lateinit var libVlc: LibVLC
+    private lateinit var player: MediaPlayer
+    private lateinit var videoLayout: VLCVideoLayout
+    private var streamUrl: String? = null
+    private var viewsAttached = false
+    private val ui = Handler(Looper.getMainLooper())
 
     // ── Views ──────────────────────────────────────────────────
     private lateinit var layoutDiscovery: View
@@ -73,16 +79,21 @@ class MainActivity : AppCompatActivity() {
         tvBattery       = findViewById(R.id.tvBattery)
 
         // Prepare player (not started until car is found)
-        // Low-latency buffering: start after 0.25 s of video and never hold more than 1 s,
-        // instead of ExoPlayer's default multi-second buffer meant for films
-        val loadControl = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(500, 1000, 250, 250)
-            .setPrioritizeTimeOverSizeThresholds(true)
-            .build()
-        player = ExoPlayer.Builder(this).setLoadControl(loadControl).build()
-        findViewById<PlayerView>(R.id.video).apply {
-            player = this@MainActivity.player
-            useController = false
+        // VLC engine: shows each frame as soon as it arrives (about 0.2 s delay)
+        libVlc = LibVLC(this, arrayListOf(
+            "--network-caching=150", "--clock-jitter=0", "--clock-synchro=0",
+            "--drop-late-frames", "--skip-frames"))
+        player = MediaPlayer(libVlc)
+        videoLayout = findViewById(R.id.video)
+        videoLayout.post {
+            val lp = videoLayout.layoutParams
+            lp.height = videoLayout.width * 9 / 16
+            videoLayout.layoutParams = lp
+        }
+        player.setEventListener { e ->
+            if (e.type == MediaPlayer.Event.EndReached || e.type == MediaPlayer.Event.EncounteredError) {
+                ui.postDelayed({ startVideo() }, 1000)   // stream dropped: reconnect
+            }
         }
 
         setupControls()
@@ -194,23 +205,27 @@ class MainActivity : AppCompatActivity() {
                 .forEach { findViewById<View>(it).visibility = View.VISIBLE }
 
             // Start video
-            // RTP over TCP: no lost packets on Wi-Fi, so the picture does not freeze
-            val rtspFactory = RtspMediaSource.Factory().setForceUseRtpTcp(true)
-            player.setMediaSource(rtspFactory.createMediaSource(
-                MediaItem.fromUri("rtsp://admin:admin@$ip:554/cam1/h264")))
-            player.repeatMode = Player.REPEAT_MODE_ONE
-            player.playWhenReady = true
-            player.addListener(object : Player.Listener {
-                override fun onPlaybackStateChanged(state: Int) {
-                    if (state == Player.STATE_IDLE || state == Player.STATE_ENDED) {
-                        layoutDiscovery.postDelayed({ player.prepare() }, 1000)
-                    }
-                }
-            })
-            player.prepare()
-            player.play()
+            streamUrl = "rtsp://admin:admin@$ip:554/cam1/h264"
+            if (!viewsAttached) {
+                player.attachViews(videoLayout, null, false, false)
+                viewsAttached = true
+            }
+            startVideo()
         }
         controlLoop(ip)
+    }
+
+    private fun startVideo() {
+        val url = streamUrl ?: return
+        player.stop()
+        val media = Media(libVlc, Uri.parse(url))
+        media.setHWDecoderEnabled(true, false)
+        media.addOption(":network-caching=150")
+        media.addOption(":rtsp-tcp")
+        player.setMedia(media)
+        media.release()
+        player.play()
+        player.setVolume(if (muted) 0 else 100)
     }
 
     // ── Control loop ───────────────────────────────────────────
@@ -305,7 +320,7 @@ class MainActivity : AppCompatActivity() {
         val btnMute = findViewById<ImageButton>(R.id.btnMute)
         btnMute.setOnClickListener {
             muted = !muted
-            player.volume = if (muted) 0f else 1f
+            player.setVolume(if (muted) 0 else 100)
             btnMute.setImageResource(if (muted) R.drawable.ic_volume_off else R.drawable.ic_volume_on)
         }
 
@@ -418,6 +433,10 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         scope.cancel()
+        ui.removeCallbacksAndMessages(null)
+        player.stop()
+        if (viewsAttached) player.detachViews()
         player.release()
+        libVlc.release()
     }
 }

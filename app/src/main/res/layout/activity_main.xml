@@ -37,17 +37,13 @@
                 android:textSize="14sp"/>
         </LinearLayout>
 
-        <!-- Camera view (16:9, full width) -->
-        <androidx.media3.ui.PlayerView
+        <!-- Camera view (VLC engine, height set to 16:9 in code) -->
+        <org.videolan.libvlc.util.VLCVideoLayout
             android:id="@+id/video"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:minHeight="220dp"
+            android:layout_height="220dp"
             android:background="#000000"
-            android:visibility="invisible"
-            app:use_controller="false"
-            app:resize_mode="fixed_width"
-            app:surface_type="texture_view"/>
+            android:visibility="invisible"/>
 
         <!-- Controls panel under the camera -->
         <LinearLayout
